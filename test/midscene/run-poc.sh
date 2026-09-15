@@ -15,6 +15,13 @@ QMP_SOCKET="/tmp/omarchy-midscene-qmp-$$.sock"
 PIDFILE="$VM_DIR/qemu.pid"
 SHIM_DIR=$(mktemp -d)
 
+if [[ -f $POC_DIR/.env ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$POC_DIR/.env"
+  set +a
+fi
+
 if [[ -z ${MIDSCENE_MODEL_API_KEY:-} ]]; then
   echo "ok - MIDSCENE_MODEL_API_KEY is not set; skipping optional Midscene PoC"
   exit 0

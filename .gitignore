@@ -6,3 +6,4 @@ __pycache__/
 # Optional host-side Midscene acceptance PoC
 test/midscene/node_modules/
 test/midscene/artifacts/
+test/midscene/.env

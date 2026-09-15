@@ -39,6 +39,8 @@ export MIDSCENE_MODEL_BASE_URL=...
 test/midscene/run-poc.sh ../omarchy-iso/release/omarchy.iso
 ```
 
+For local runs, `run-poc.sh` automatically loads an ignored `test/midscene/.env` file when it exists. GitHub Actions continues to read the same variables from repository secrets and does not use this local file.
+
 When `MIDSCENE_MODEL_API_KEY` is absent, the command reports an optional skip and exits successfully before booting a VM.
 
 Set `OMARCHY_MIDSCENE_RUNS` to change the repetition count. It defaults to 10. Set both `MIDSCENE_INPUT_COST_PER_MILLION` and `MIDSCENE_OUTPUT_COST_PER_MILLION` to the selected model's USD prices if a dollar estimate is required. Token usage is always recorded when the provider returns it; cost remains `null` rather than guessing when prices are not supplied.
