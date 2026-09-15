@@ -1,54 +1,96 @@
-# PoC: an optional semantic UI verification layer for Omarchy acceptance tests
+# Proposal: Agentic E2E as an optional semantic UI verification layer
 
-Omarchy already has a strong graphical acceptance system: the `omarchy-iso` harness installs and boots a real VM, QMP sends compositor-level shortcuts, Bash checks system state, OCR checks visible text, and the run captures screenshots. This proposal does not replace any of that.
+Omarchy already has a strong graphical acceptance foundation. The
+`omarchy-iso` harness installs and boots a real VM, QMP sends compositor-level
+shortcuts, Bash verifies system state, OCR verifies visible text, and each run
+captures screenshots. This proposal keeps all of that intact.
 
-I built a small, isolated proof of concept that adds Midscene only as a semantic visual assertion layer on top of the existing VM and QMP approach.
+The small gap I would like to explore is semantic: after the deterministic
+checks pass, does the rendered desktop actually look and behave like the right
+experience to a user?
 
-## What the PoC does
+Omarchy is built to be AI-friendly. Adding a small Agentic E2E layer to such a
+desktop feels like a natural and genuinely interesting direction—not instead of
+pixels, text, and process state, but on top of them.
 
-The scenario intentionally covers one stable path:
+## Evidence from a real Omarchy plugin
 
-1. Boot a real installed Omarchy VM from a disposable overlay.
-2. Send `Super + Space` with QMP.
-3. Ask Midscene whether the native Omarchy launcher is visibly correct.
-4. Type `settings` with QMP. On current `quattro`, this intentionally resolves through the retained alias to the `Setup` item.
-5. Ask Midscene whether the relevant search result is visible.
-6. Press Enter with QMP and ask Midscene whether the Setup/Settings page and representative configuration choices are visible.
-7. Repeat the scenario ten times.
+I first used [Midscene](https://midscenejs.com/) for the UI E2E tests of
+[“Doubao Say”](https://github.com/quanru/doubao-say), an open-source voice input
+plugin for Linux, Wayland, and Omarchy. Those tests exercise the rendered
+onboarding experience rather than mocking it.
 
-QMP performs all interaction. Midscene does not decide where to click or replace the deterministic input path.
+- [Open the Doubao Say Midscene report](https://quanru.github.io/doubao-say/reports/34968840991/index.html)
+- [Inspect the corresponding CI run](https://github.com/quanru/doubao-say/actions/runs/34968840991)
 
-## Results
+That experience suggested a similarly narrow experiment for Omarchy itself.
 
-The runner produces a self-contained HTML replay, screenshots for every state, and `summary.json`/`summary.md` files containing stability, per-run duration, model calls, tokens, and estimated cost.
+## Omarchy-native PoC
 
-<!-- Replace this block with test/midscene/artifacts/summary.md after a public run. -->
+The isolated PoC boots a real installed Omarchy VM and validates one stable
+contract:
 
-- Stability: pending first public run
-- Average duration: pending first public run
-- Model calls and tokens: pending first public run
-- Estimated cost: pending first public run
-- HTML report: pending artifact link
+1. QMP sends the real `Super + Space` shortcut.
+2. Midscene verifies that the native Omarchy launcher is visibly correct.
+3. QMP types `settings`; current `quattro` resolves the retained alias to
+   `Setup`.
+4. Midscene verifies the relevant result.
+5. QMP presses Enter.
+6. Midscene verifies the Setup page and its representative configuration
+   choices.
+
+QMP performs every interaction. Midscene is used only for semantic visual
+assertions, so the AI layer cannot silently replace the deterministic input
+path.
+
+- [Open the Omarchy Midscene report](https://quanru.github.io/omarchy/reports/34963648995/)
+- [Inspect the corresponding green CI run](https://github.com/quanru/omarchy/actions/runs/34963648995)
+- [Review the isolated PoC branch](https://github.com/quanru/omarchy/tree/poc/midscene-semantic-ui)
+
+An earlier ten-run measurement completed all 10 scenarios successfully:
+
+- Stability: **10/10 (100%)**
+- Average scenario duration: **29.22 seconds**
+- Semantic assertions: **30**
+- Usage: **56,410 input + 2,994 output tokens**
+- Model connection retries: **6**, all recovered automatically
+
+The latest linked run is a smaller green smoke run. It confirms the final CI
+and browser-report publishing path without spending another full ten-run model
+budget.
 
 ## Deliberate constraints
 
 - Completely optional and isolated under `test/midscene`.
-- Not part of `test/all` or the existing acceptance runner.
-- No change to existing Bash, OCR, screenshot, QMP, or VM assertions.
 - Manual `workflow_dispatch` only.
-- Automatically skips successfully when no model API key is configured.
-- Not proposed as a required check.
-- Pinned Node dependencies and a single scenario to keep review and removal simple.
-- Dollar cost is calculated only when explicit model prices are configured; the PoC never guesses pricing.
+- Not included in `test/all` and not proposed as a required check.
+- No changes to existing Bash, OCR, screenshot, QMP, or VM assertions.
+- Missing model credentials produce a successful skip before booting a VM.
+- Pinned dependencies and one narrow scenario.
+- Self-contained HTML replay, screenshots, duration, token usage, and optional
+  cost calculation.
+- Reports use traceable GitHub Run ID URLs, with the original evidence retained
+  on each Actions run.
 
-## Why this may be useful
+## Why this seems complementary
 
-The current checks are excellent at exact state and text assertions. A semantic layer can complement them when the user-visible contract spans several visual facts at once: for example, a launcher may technically exist and contain OCR-readable words while still being clipped, visually obscured, or presenting the wrong kind of page. The HTML replay also makes this class of failure easier to review after the VM is gone.
+Exact checks remain the best tool for exact contracts. A semantic assertion is
+useful when the user-visible contract combines several facts—for example, the
+launcher can exist and contain OCR-readable text while still being clipped,
+obscured, or showing the wrong kind of page.
+
+This PoC adds that final user-facing question while leaving the existing test
+architecture in control.
 
 ## Questions for maintainers
 
-1. Is this narrow, optional positioning compatible with how you want the acceptance suite to evolve?
-2. Is launcher → Setup the right first semantic contract, or is another existing acceptance path more useful?
-3. If the stability and cost data are acceptable, would you be open to a later minimal PR that keeps this manual and non-required?
+1. Does this optional, additive positioning fit how you want the acceptance
+   suite to evolve?
+2. Is launcher → Setup a useful first semantic contract, or would another
+   existing acceptance path be more valuable?
+3. If the stability, latency, and usage are acceptable, would you be open to a
+   minimal PR that remains manual and non-required?
 
-I would prefer to collect feedback and publish the ten-run evidence before proposing any production dependency or CI requirement.
+As a core Midscene developer, I would love the opportunity to contribute to E2E
+testing in the main Omarchy repository. I am intentionally proposing discussion
+and evidence first—not a required dependency or check.
