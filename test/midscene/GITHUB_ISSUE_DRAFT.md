@@ -21,8 +21,8 @@ I first used [Midscene](https://midscenejs.com/) for the UI E2E tests of
 plugin for Linux, Wayland, and Omarchy. Those tests exercise the rendered
 onboarding experience rather than mocking it.
 
-- [Open the Doubao Say Midscene report](https://quanru.github.io/doubao-say/reports/34966813655/index.html)
-- [Inspect the corresponding CI run](https://github.com/quanru/doubao-say/actions/runs/34966813655)
+- [Open the Doubao Say Midscene report](https://quanru.github.io/doubao-say/reports/34968840991/index.html)
+- [Inspect the corresponding CI run](https://github.com/quanru/doubao-say/actions/runs/34968840991)
 
 That experience suggested a similarly narrow experiment for Omarchy itself.
 
