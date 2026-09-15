@@ -250,4 +250,7 @@ await writeFile(join(artifactDir, 'summary.json'), `${JSON.stringify(summary, nu
 await writeFile(join(artifactDir, 'summary.md'), markdownSummary(results, reportFile));
 console.log(markdownSummary(results, reportFile));
 
-if (passed !== runCount) process.exitCode = 1;
+// Some optional desktop/X11 child processes may leave a non-zero exitCode even
+// after they have been shut down cleanly. The scenario results are the source
+// of truth for the workflow conclusion.
+process.exitCode = passed === runCount ? 0 : 1;
