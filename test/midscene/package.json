@@ -1,0 +1,16 @@
+{
+  "name": "omarchy-midscene-semantic-poc",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "run": "tsx src/run.ts"
+  },
+  "devDependencies": {
+    "@midscene/computer": "1.12.6",
+    "@types/node": "24.3.1",
+    "tsx": "4.20.5",
+    "typescript": "5.9.2"
+  }
+}

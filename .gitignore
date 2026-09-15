@@ -2,3 +2,7 @@
 # Python bytecode (orchestrator)
 __pycache__/
 *.pyc
+
+# Optional host-side Midscene acceptance PoC
+test/midscene/node_modules/
+test/midscene/artifacts/

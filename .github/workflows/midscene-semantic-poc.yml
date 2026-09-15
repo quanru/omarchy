@@ -1,0 +1,115 @@
+name: Optional Midscene semantic UI PoC
+
+on:
+  workflow_dispatch:
+    inputs:
+      iso_url:
+        description: Direct URL of an official Omarchy ISO
+        required: true
+        type: string
+      iso_sha256:
+        description: SHA-256 of the ISO
+        required: true
+        type: string
+      runs:
+        description: Number of consecutive semantic checks
+        required: false
+        default: "10"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: optional-midscene-semantic-poc
+  cancel-in-progress: false
+
+jobs:
+  omarchy-midscene:
+    name: QMP interaction + Midscene verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      MIDSCENE_MODEL_API_KEY: ${{ secrets.MIDSCENE_MODEL_API_KEY }}
+      MIDSCENE_MODEL_NAME: ${{ secrets.MIDSCENE_MODEL_NAME }}
+      MIDSCENE_MODEL_BASE_URL: ${{ secrets.MIDSCENE_MODEL_BASE_URL }}
+      MIDSCENE_MODEL_FAMILY: ${{ secrets.MIDSCENE_MODEL_FAMILY }}
+      MIDSCENE_INPUT_COST_PER_MILLION: ${{ vars.MIDSCENE_INPUT_COST_PER_MILLION }}
+      MIDSCENE_OUTPUT_COST_PER_MILLION: ${{ vars.MIDSCENE_OUTPUT_COST_PER_MILLION }}
+      OMARCHY_MIDSCENE_RUNS: ${{ inputs.runs }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Detect optional model configuration
+        id: model
+        shell: bash
+        run: |
+          if [[ -n $MIDSCENE_MODEL_API_KEY ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "MIDSCENE_MODEL_API_KEY is absent; this optional PoC is skipped." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Enable KVM
+        if: steps.model.outputs.available == 'true'
+        run: sudo chmod 0666 /dev/kvm
+
+      - name: Install host dependencies
+        if: steps.model.outputs.available == 'true'
+        run: |
+          # The official ISO plus its installed qcow2 base need more room than
+          # the stock hosted-runner image normally leaves available.
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            fluxbox imagemagick ovmf qemu-system-x86 qemu-utils socat \
+            tesseract-ocr tesseract-ocr-eng tigervnc-viewer x11-xserver-utils xvfb
+          sudo mkdir -p /usr/share/edk2/x64
+          sudo ln -sf /usr/share/OVMF/OVMF_CODE_4M.fd /usr/share/edk2/x64/OVMF_CODE.4m.fd
+          sudo ln -sf /usr/share/OVMF/OVMF_VARS_4M.fd /usr/share/edk2/x64/OVMF_VARS.4m.fd
+
+      - name: Fetch Omarchy ISO harness and ISO
+        if: steps.model.outputs.available == 'true'
+        env:
+          ISO_URL: ${{ inputs.iso_url }}
+          ISO_SHA256: ${{ inputs.iso_sha256 }}
+        run: |
+          git clone --depth 1 https://github.com/omacom/omarchy-iso.git ../omarchy-iso
+          mkdir -p ../omarchy-iso/release
+          curl --fail --location --retry 4 --retry-all-errors \
+            --output ../omarchy-iso/release/omarchy.iso "$ISO_URL"
+          echo "$ISO_SHA256  ../omarchy-iso/release/omarchy.iso" | sha256sum --check --strict
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        if: steps.model.outputs.available == 'true'
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: test/midscene/package-lock.json
+
+      - name: Install isolated Midscene dependencies
+        if: steps.model.outputs.available == 'true'
+        run: npm --prefix test/midscene ci --include=optional --ignore-scripts
+
+      - name: Run the real Omarchy PoC
+        if: steps.model.outputs.available == 'true'
+        run: test/midscene/run-poc.sh ../omarchy-iso/release/omarchy.iso
+
+      - name: Add results to job summary
+        if: always() && steps.model.outputs.available == 'true'
+        run: |
+          if [[ -f test/midscene/artifacts/summary.md ]]; then
+            cat test/midscene/artifacts/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload public PoC evidence
+        if: always() && steps.model.outputs.available == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: omarchy-midscene-semantic-poc
+          path: test/midscene/artifacts/
+          if-no-files-found: warn
+          retention-days: 7
