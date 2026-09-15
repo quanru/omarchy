@@ -26,6 +26,12 @@ const runCount = Number.parseInt(process.env.OMARCHY_MIDSCENE_RUNS ?? '10', 10);
 const inputPrice = optionalNumber('MIDSCENE_INPUT_COST_PER_MILLION');
 const outputPrice = optionalNumber('MIDSCENE_OUTPUT_COST_PER_MILLION');
 
+// Qwen 3.7 uses the same coordinate protocol as the qwen3 Midscene recipe.
+// Keep this aligned with the LifeOS harness that owns the shared local .env.
+if (process.env.MIDSCENE_MODEL_FAMILY === 'qwen3.7') {
+  process.env.MIDSCENE_MODEL_FAMILY = 'qwen3';
+}
+
 if (!qmpSocket) throw new Error('OMARCHY_QMP_SOCKET is required');
 if (!Number.isInteger(runCount) || runCount < 1 || runCount > 100) {
   throw new Error('OMARCHY_MIDSCENE_RUNS must be an integer from 1 to 100');
