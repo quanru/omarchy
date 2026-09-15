@@ -59,4 +59,10 @@ Generated files are ignored by Git and written under `test/midscene/artifacts/`:
 - `summary.md` — concise table suitable for a GitHub Discussion.
 - `vm/` — disposable VM overlay and serial log.
 
+Successful GitHub Actions runs also deploy the HTML file to GitHub Pages. The
+`Publish clickable HTML report` job summary and its `github-pages` environment
+contain a browser-openable link; downloading the evidence artifact is optional.
+The Pages URL always serves the latest successful report, while per-run evidence
+remains attached to each workflow run as an artifact.
+
 The VM overlay is always discarded on the next run. The reusable base remains under the sibling `omarchy-iso/test-runs/` directory.

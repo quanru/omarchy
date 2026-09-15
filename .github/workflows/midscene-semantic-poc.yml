@@ -106,6 +106,24 @@ jobs:
             cat test/midscene/artifacts/summary.md >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      - name: Prepare browser-openable report
+        if: steps.model.outputs.available == 'true'
+        run: |
+          report=$(find test/midscene/artifacts/midscene_run/report \
+            -maxdepth 1 -type f -name '*.html' -print -quit)
+          if [[ -z $report ]]; then
+            echo "Midscene did not generate an HTML report." >&2
+            exit 1
+          fi
+          mkdir -p /tmp/omarchy-midscene-pages
+          cp "$report" /tmp/omarchy-midscene-pages/index.html
+
+      - name: Upload report for GitHub Pages
+        if: steps.model.outputs.available == 'true'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: /tmp/omarchy-midscene-pages
+
       - name: Upload public PoC evidence
         if: always() && steps.model.outputs.available == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -114,3 +132,34 @@ jobs:
           path: test/midscene/artifacts/
           if-no-files-found: warn
           retention-days: 7
+
+  publish-report:
+    name: Publish clickable HTML report
+    needs: omarchy-midscene
+    if: needs.omarchy-midscene.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
+
+      - name: Deploy Midscene report
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+      - name: Add clickable report link
+        env:
+          REPORT_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          {
+            echo "## Midscene HTML report"
+            echo
+            echo "[Open the latest successful report in your browser]($REPORT_URL)"
+          } >> "$GITHUB_STEP_SUMMARY"
