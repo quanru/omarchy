@@ -201,4 +201,28 @@ export MIDSCENE_COMPUTER_HEADLESS_LINUX=true
 export MIDSCENE_RUN_DIR="$ARTIFACTS/midscene_run"
 
 echo "Running $RUNS QMP-driven, Midscene-verified launcher scenarios."
-npm --prefix "$POC_DIR" run run
+runner_status=0
+npm --prefix "$POC_DIR" run run || runner_status=$?
+
+# @midscene/computer may report a non-zero X11 teardown status after its HTML
+# report and scenario summary have been written. Treat the structured scenario
+# results as authoritative, while preserving failures that did not produce a
+# complete, all-passing summary.
+if node -e '
+  const fs = require("node:fs");
+  const summary = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+  process.exit(
+    summary.requestedRuns > 0 &&
+    summary.passedRuns === summary.requestedRuns &&
+    summary.failedRuns === 0
+      ? 0
+      : 1,
+  );
+' "$ARTIFACTS/summary.json"; then
+  exit 0
+fi
+
+if ((runner_status == 0)); then
+  runner_status=1
+fi
+exit "$runner_status"
