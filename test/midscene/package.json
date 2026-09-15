@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "check": "tsc --noEmit",
+    "prepare-pages": "tsx src/prepare-pages.ts",
     "run": "tsx src/run.ts"
   },
   "devDependencies": {

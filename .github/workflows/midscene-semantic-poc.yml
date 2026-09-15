@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: read
+  pages: read
 
 concurrency:
   group: optional-midscene-semantic-poc
@@ -106,17 +107,20 @@ jobs:
             cat test/midscene/artifacts/summary.md >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - name: Prepare browser-openable report
+      - name: Configure GitHub Pages metadata
         if: steps.model.outputs.available == 'true'
+        id: pages
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
+
+      - name: Build report history site
+        if: steps.model.outputs.available == 'true'
+        env:
+          PAGES_BASE_URL: ${{ steps.pages.outputs.base_url }}
+          MIDSCENE_REPORT_RETENTION: "10"
         run: |
-          report=$(find test/midscene/artifacts/midscene_run/report \
-            -maxdepth 1 -type f -name '*.html' -print -quit)
-          if [[ -z $report ]]; then
-            echo "Midscene did not generate an HTML report." >&2
-            exit 1
-          fi
-          mkdir -p /tmp/omarchy-midscene-pages
-          cp "$report" /tmp/omarchy-midscene-pages/index.html
+          npm --prefix test/midscene run prepare-pages -- \
+            "$GITHUB_WORKSPACE/test/midscene/artifacts" \
+            /tmp/omarchy-midscene-pages
 
       - name: Upload report for GitHub Pages
         if: steps.model.outputs.available == 'true'
@@ -156,10 +160,14 @@ jobs:
 
       - name: Add clickable report link
         env:
-          REPORT_URL: ${{ steps.deployment.outputs.page_url }}
+          PAGES_URL: ${{ steps.deployment.outputs.page_url }}
+          RUN_ID: ${{ github.run_id }}
         run: |
+          report_url="${PAGES_URL%/}/reports/$RUN_ID/"
           {
             echo "## Midscene HTML report"
             echo
-            echo "[Open the latest successful report in your browser]($REPORT_URL)"
+            echo "[Open this run's report in your browser]($report_url)"
+            echo
+            echo "[Browse report history]($PAGES_URL)"
           } >> "$GITHUB_STEP_SUMMARY"
