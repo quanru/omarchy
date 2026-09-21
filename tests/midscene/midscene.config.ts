@@ -187,23 +187,30 @@ const applyFix = defineNode<typeof empty, void, FcitxContext>({
   },
 });
 
-// fcitx5's compiled-in default QuickPhrase trigger is Super+grave. QuickPhrase
-// swallows the first typed character into its own preedit strip, which is what
-// makes the control/treatment difference visible. Keys go through QMP on the
-// host (a real keyboard), not the virtual-keyboard path.
-const invokeQuickPhrase = defineNode<typeof empty, void, FcitxContext>({
+// fcitx5's compiled-in default QuickPhrase triggers are Super+grave and
+// Super+semicolon. QuickPhrase swallows the first typed character into its
+// own preedit strip, which is what makes the control/treatment difference
+// visible. Keys go through QMP on the host (a real keyboard), not the
+// virtual-keyboard path.
+const invokeInput = z.strictObject({
+  // QMP qcodes of the trigger chord; defaults to Super+grave.
+  chord: z.array(z.string()).optional(),
+});
+
+const invokeQuickPhrase = defineNode<typeof invokeInput, void, FcitxContext>({
   name: 'fcitx.invokeQuickPhrase',
-  description: 'Press Super+grave followed by the letter a via QMP hardware-keyboard injection.',
-  inputSchema: empty,
-  async execute({ context }) {
+  description: 'Press a QuickPhrase trigger chord followed by the letter a via QMP hardware-keyboard injection.',
+  inputSchema: invokeInput,
+  async execute({ input, context }) {
+    const chord = input.chord && input.chord.length > 0 ? input.chord : ['meta_l', 'grave_accent'];
     const before = fcitxPopupCount();
-    qmpPress(['meta_l', 'grave_accent']);
+    qmpPress(chord);
     await sleep(700);
     qmpPress(['a']);
     await sleep(1000);
     const after = fcitxPopupCount();
     console.log(
-      `[fcitx] fixApplied=${context.fixApplied} popup clients ${before} -> ${after}; `
+      `[fcitx] fixApplied=${context.fixApplied} chord=${chord.join('+')} popup clients ${before} -> ${after}; `
       + `classes after: ${clientClasses()}`,
     );
   },

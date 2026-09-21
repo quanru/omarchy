@@ -3,7 +3,8 @@ cases:
     steps:
       - fcitx.resetDefault: {}
       - shell.openTerminal: {}
-      - fcitx.invokeQuickPhrase: {}
+      - fcitx.invokeQuickPhrase:
+          chord: [meta_l, grave_accent]
       - aiAssert: >-
           A fcitx5 Quick Phrase popup is open: a bordered white menu titled
           "Quick Phrase:" positioned near the top-left of the focused
@@ -14,16 +15,25 @@ cases:
           candidate menu itself is clearly visible.
       - fcitx.cancel: {}
 
-  - name: Shipped quickphrase.conf TriggerKey= frees Super+grave (omarchy issue 12365)
+  - name: Shipped quickphrase.conf frees Super+grave but keeps Super+semicolon (omarchy issue 12365)
     steps:
       - fcitx.applyFix: {}
       - shell.openTerminal: {}
-      - fcitx.invokeQuickPhrase: {}
+      - fcitx.invokeQuickPhrase:
+          chord: [meta_l, grave_accent]
       - aiAssert: >-
           No fcitx5 Quick Phrase popup, candidate menu or composing window
           is visible anywhere on the screen. The Super+grave chord was not
           captured by the input method, and the lowercase letter "a" was
           typed directly into the focused terminal at the shell prompt
           rather than opening any fcitx5 UI.
+      - fcitx.cancel: {}
+      - fcitx.invokeQuickPhrase:
+          chord: [meta_l, semicolon]
+      - aiAssert: >-
+          A fcitx5 Quick Phrase candidate menu titled "Quick Phrase:" is now
+          open in the focused terminal with numbered candidate entries,
+          proving that only the colliding Super+grave trigger was removed
+          while the unrelated Super+semicolon default trigger still works.
       - fcitx.resetDefault: {}
       - fcitx.cancel: {}
