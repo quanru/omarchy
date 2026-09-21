@@ -31,9 +31,9 @@ cases:
       - fcitx.invokeQuickPhrase:
           chord: [meta_l, semicolon]
       - aiAssert: >-
-          A fcitx5 Quick Phrase candidate menu titled "Quick Phrase:" is now
-          open in the focused terminal with numbered candidate entries,
-          proving that only the colliding Super+grave trigger was removed
-          while the unrelated Super+semicolon default trigger still works.
+          A fcitx5 Quick Phrase candidate menu titled "Quick Phrase:" is
+          visibly open in the focused terminal with numbered candidate
+          entries. Judge only whether that menu is currently visible; do not
+          infer which key opened it or reason about earlier test steps.
       - fcitx.resetDefault: {}
       - fcitx.cancel: {}
