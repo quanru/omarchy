@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>fcitx5 QuickPhrase Super+grave regression — Midscene evidence</title>
+<title>fcitx5 QuickPhrase trigger regression — latest Midscene evidence</title>
 <style>
   body { font-family: system-ui, sans-serif; max-width: 980px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
   h1 { font-size: 1.4rem; }
@@ -16,31 +16,39 @@
 </style>
 </head>
 <body>
-<h1>fcitx5 QuickPhrase <code>Super+grave</code> — Midscene visual regression evidence</h1>
+<h1>fcitx5 QuickPhrase trigger regression — latest Midscene evidence</h1>
 <p>
 Evidence for upstream PR <a href="https://github.com/omacom/omarchy/pull/12756">omacom/omarchy#12756</a>,
 issue <a href="https://github.com/omacom/omarchy/issues/12365">#12365</a>.
-Real Omarchy <strong>4.0.3</strong> VM; Midscene drove the live Hyprland desktop and injected
-<code>Super+grave</code> via QEMU QMP <code>send-key</code> (hardware-keyboard path through the
-Hyprland bind layer and fcitx5's IM filter). Vision-model assertions on the actual screen;
-2/2 cases passed.
-CI run: <a href="https://github.com/quanru/omarchy/actions/runs/35583300837">35583300837</a>.
+Revalidated against the exact candidate config and migration in a real Omarchy <strong>4.0.3</strong> VM.
+Midscene inspected the live Hyprland desktop over VNC while QEMU QMP injected the keyboard chords.
+The treatment began with an existing config containing another user choice and only commented
+<code>TriggerKey</code> defaults; the shipped migration preserved that choice and appended the narrowed trigger.
+The latest run passed <strong>2/2 cases on the first attempt</strong>.
+CI run: <a href="https://github.com/quanru/omarchy/actions/runs/35612533053">35612533053</a>.
 </p>
 
-<h2>Before — stock Omarchy (control)</h2>
-<p><code>Super+grave</code> opens the fcitx5 Quick Phrase candidate popup; the keystroke is intercepted.</p>
+<h2>Control — stock fcitx5</h2>
+<p><code>Super+grave</code> opens the Quick Phrase candidate menu, confirming the original collision.</p>
 <figure>
-  <img src="before-stock-quickphrase.jpg" alt="Terminal with the Quick Phrase candidate menu open">
-  <figcaption>Screenshot at the aiAssert step.</figcaption>
+  <img src="control-super-grave-popup.jpg" alt="Stock fcitx5 showing the Quick Phrase candidate menu after Super+grave">
+  <figcaption>Control screenshot captured at the successful Midscene visual assertion.</figcaption>
 </figure>
-<p><a class="report" href="midscene-report-before-stock.html">Open the full self-contained Midscene report (steps, screenshots, model reasoning)</a></p>
 
-<h2>After — shipping <code>quickphrase.conf</code> with <code>TriggerKey=</code> (treatment)</h2>
-<p>No fcitx5 UI appears; the keystrokes reach the terminal prompt directly.</p>
+<h2>Treatment — conflicting chord released</h2>
+<p>After applying the shipped migration, <code>Super+grave</code> no longer opens fcitx5 UI and the following key reaches the terminal.</p>
 <figure>
-  <img src="after-triggerkey-blank.jpg" alt="Terminal with no Quick Phrase popup, backtick and a typed at the prompt">
-  <figcaption>Screenshot at the aiAssert step.</figcaption>
+  <img src="treatment-super-grave-released.jpg" alt="Terminal with no Quick Phrase popup after Super+grave">
+  <figcaption>Treatment screenshot captured at the successful Midscene visual assertion.</figcaption>
 </figure>
-<p><a class="report" href="midscene-report-after-fix.html">Open the full self-contained Midscene report (steps, screenshots, model reasoning)</a></p>
+
+<h2>Treatment — QuickPhrase remains available</h2>
+<p><code>Super+semicolon</code> still opens the Quick Phrase candidate menu, showing that the feature was narrowed rather than disabled.</p>
+<figure>
+  <img src="treatment-super-semicolon-popup.jpg" alt="Quick Phrase candidate menu open after Super+semicolon">
+  <figcaption>Preservation screenshot captured at the successful Midscene visual assertion.</figcaption>
+</figure>
+
+<p><a class="report" href="midscene-report/">Open the complete native Midscene report (steps, screenshots, and model reasoning)</a></p>
 </body>
 </html>
