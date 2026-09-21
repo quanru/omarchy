@@ -51,17 +51,20 @@ const waitForFcitx = () => guest(
   + 'echo "fcitx5 did not come back up" >&2; exit 1',
 );
 
+// Retried cases restart fcitx5 repeatedly within systemd's default start-rate
+// window; clear the failed counter first so restart is not refused.
 const restartFcitx = () => {
-  guest('systemctl --user restart omarchy-fcitx5.service');
+  guest('systemctl --user reset-failed omarchy-fcitx5.service 2>/dev/null || true; '
+    + 'systemctl --user restart omarchy-fcitx5.service');
   waitForFcitx();
 };
 
 const layerNamespaces = () => guest(
-  'hyprctl -j layers | jq -r \'[.. | objects | .namespace? // empty] | join(",")\'',
+  'hyprctl -j layers | jq -r \'[.. | objects | (.namespace // "")] | join(",")\'',
 );
 
 const fcitxPanelCount = () => Number.parseInt(
-  guest('hyprctl -j layers | jq -r \'[.. | objects | select(.namespace? | ascii_downcase | test("fcitx|input-panel|input_panel"))] | length\'',
+  guest('hyprctl -j layers | jq -r \'[.. | objects | select((.namespace // "") | ascii_downcase | test("fcitx|input-panel|input_panel"))] | length\'',
   ) || '0', 10,
 );
 
