@@ -1,0 +1,25 @@
+cases:
+  - name: Stock Omarchy opens fcitx5 QuickPhrase on Super+grave (control)
+    steps:
+      - fcitx.resetDefault: {}
+      - shell.openTerminal: {}
+      - fcitx.invokeQuickPhrase: {}
+      - aiAssert: >-
+          A small fcitx5 QuickPhrase input strip (the addon's composing popup,
+          usually a thin horizontal bar near the bottom of the screen) is open
+          and shows the freshly typed lowercase letter "a" as its composing
+          text. The terminal's shell prompt line must NOT contain that "a",
+          because QuickPhrase intercepted the keystroke.
+      - fcitx.cancel: {}
+
+  - name: Shipped quickphrase.conf TriggerKey= frees Super+grave (omarchy issue 12365)
+    steps:
+      - fcitx.applyFix: {}
+      - fcitx.invokeQuickPhrase: {}
+      - aiAssert: >-
+          No fcitx5 QuickPhrase strip, candidate window or composing popup is
+          visible anywhere on the screen. The Super+grave chord did nothing in
+          the input method, and the lowercase letter "a" was typed directly
+          into the terminal at the shell prompt.
+      - fcitx.resetDefault: {}
+      - fcitx.cancel: {}

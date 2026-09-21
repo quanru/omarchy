@@ -1,0 +1,4 @@
+node_modules/
+midscene_run/
+.midscene-omarchy/
+*.log

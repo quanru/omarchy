@@ -1,0 +1,143 @@
+name: Midscene fcitx5 QuickPhrase regression
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [quattro]
+    paths:
+      - ".github/workflows/midscene-fcitx-quickphrase.yml"
+      - "tests/midscene/**"
+      - "config/fcitx5/**"
+  push:
+    branches:
+      - test/midscene-fcitx5-quickphrase
+    paths:
+      - ".github/workflows/midscene-fcitx-quickphrase.yml"
+      - "tests/midscene/**"
+      - "config/fcitx5/**"
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: midscene-fcitx5-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  omarchy-e2e:
+    name: QuickPhrase Super+grave regression in a real Omarchy VM
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      MIDSCENE_MODEL_API_KEY: ${{ secrets.MIDSCENE_MODEL_API_KEY }}
+      MIDSCENE_MODEL_NAME: ${{ secrets.MIDSCENE_MODEL_NAME }}
+      MIDSCENE_MODEL_BASE_URL: ${{ secrets.MIDSCENE_MODEL_BASE_URL }}
+      MIDSCENE_MODEL_FAMILY: ${{ secrets.MIDSCENE_MODEL_FAMILY }}
+      MIDSCENE_MODEL_REASONING_ENABLED: ${{ secrets.MIDSCENE_MODEL_REASONING_ENABLED }}
+      MIDSCENE_COMPUTER_HEADLESS_LINUX: "true"
+      MIDSCENE_REPLANNING_CYCLE_LIMIT: "40"
+      # The model endpoint answers bursts with 429; retry across the RPM window.
+      MIDSCENE_MODEL_RETRY_COUNT: "3"
+      MIDSCENE_MODEL_RETRY_INTERVAL: "65000"
+      NODE_OPTIONS: "--dns-result-order=ipv4first --no-network-family-autoselection"
+    steps:
+      - uses: actions/checkout@v4 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Require Midscene model configuration
+        run: |
+          test -n "$MIDSCENE_MODEL_API_KEY"
+          test -n "$MIDSCENE_MODEL_NAME"
+          test -n "$MIDSCENE_MODEL_BASE_URL"
+          test -n "$MIDSCENE_MODEL_FAMILY"
+
+      - name: Check Midscene model before the expensive VM boot
+        run: |
+          payload=$(jq -nc --arg model "$MIDSCENE_MODEL_NAME" '{
+            model: $model,
+            messages: [{role: "user", content: "Reply OK."}],
+            max_tokens: 1
+          }')
+          # The Ark endpoint is rate limited to roughly 25-35 RPM and answers
+          # bursts with 429. Retry 429/5xx across the window; fail fast on
+          # auth or routing errors.
+          for attempt in $(seq 1 12); do
+            code=$(curl -sS -o /tmp/model-check.out -w '%{http_code}' \
+              --connect-timeout 15 --max-time 90 \
+              -H "Authorization: Bearer $MIDSCENE_MODEL_API_KEY" \
+              -H "Content-Type: application/json" \
+              --data "$payload" \
+              "${MIDSCENE_MODEL_BASE_URL%/}/chat/completions" || printf '000')
+            case "$code" in
+              2*) echo "Model endpoint reachable (HTTP $code)."; exit 0 ;;
+              429|5*|000)
+                echo "Model endpoint returned $code (attempt $attempt/12); waiting 20s."
+                sleep 20
+                ;;
+              *)
+                echo "Model endpoint returned unrecoverable HTTP $code:"
+                cat /tmp/model-check.out
+                exit 1
+                ;;
+            esac
+          done
+          echo "Model endpoint stayed rate-limited through the retry window." >&2
+          exit 1
+
+      - uses: oras-project/setup-oras@1d808f7d7f6995cc68b7bf507bfe5c5446e1dc9d # v2.0.1
+
+      - name: Sign in to GitHub Container Registry
+        run: echo "$GHCR_TOKEN" | oras login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+
+      # First run on a new pin: the image is missing, so install from the
+      # verified ISO. Later runs restore the published base in about a minute.
+      - name: Restore prebuilt Omarchy VM (or install one on a cold cache)
+        run: tests/midscene/restore-omarchy-vm.sh || tests/midscene/install-omarchy-vm.sh
+
+      - uses: actions/setup-node@v4 # v6.5.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: tests/midscene/package-lock.json
+
+      - name: Install Midscene and the VNC bridge
+        id: test-dependencies
+        run: |
+          sudo apt-get install -y --no-install-recommends \
+            fluxbox tigervnc-viewer x11-xserver-utils xvfb
+          for attempt in 1 2 3; do
+            if npm --prefix tests/midscene ci --include=optional --ignore-scripts; then
+              exit 0
+            fi
+            echo "npm install attempt $attempt failed; retrying." >&2
+            sleep 10
+          done
+          exit 1
+
+      - name: Run the fcitx5 QuickPhrase regression
+        id: midscene-test
+        run: tests/midscene/run-omarchy-midscene.sh omarchy-fcitx5
+
+      - name: Upload installer evidence
+        if: always() && !cancelled()
+        uses: actions/upload-artifact@v4 # v7.0.1
+        with:
+          name: omarchy-vm-installer-evidence
+          path: .midscene-omarchy/omarchy-iso/test-runs/**/runs/**
+          if-no-files-found: warn
+          retention-days: 3
+          overwrite: true
+
+      - name: Upload Midscene QuickPhrase report
+        if: always() && !cancelled() && steps.test-dependencies.outcome == 'success'
+        uses: actions/upload-artifact@v4 # v7.0.1
+        with:
+          name: omarchy-midscene-fcitx5
+          path: tests/midscene/midscene_run/
+          if-no-files-found: error
+          retention-days: 14
+          overwrite: true

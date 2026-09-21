@@ -2,3 +2,6 @@
 # Python bytecode (orchestrator)
 __pycache__/
 *.pyc
+
+# Midscene disposable-VM artifacts
+.midscene-omarchy/
