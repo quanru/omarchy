@@ -8,7 +8,6 @@ on:
     paths:
       - "tests/midscene/.rebuild-omarchy-vm"
       - "tests/midscene/install-omarchy-vm.sh"
-      - "tests/midscene/prepare-omarchy-host.sh"
       - "tests/midscene/publish-omarchy-vm.sh"
       - "tests/midscene/omarchy-vm.env"
 
