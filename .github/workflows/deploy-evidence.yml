@@ -1,6 +1,9 @@
 name: Deploy evidence to GitHub Pages
 
 on:
+  push:
+    branches:
+      - deploy/pr12756-evidence
   workflow_dispatch:
 
 permissions:
