@@ -64,9 +64,24 @@ const layerNamespaces = () => guest(
 );
 
 const fcitxPanelCount = () => Number.parseInt(
-  guest('hyprctl -j layers | jq -r \'[.. | objects | select((.namespace // "") | ascii_downcase | test("fcitx|input-panel|input_panel"))] | length\'',
+  guest('hyprctl -j layers | jq -r \'[.. | objects | select((.namespace // "") | ascii_downcase | test("fcitx|input-panel|input_panel|quickphrase"))] | length\'',
   ) || '0', 10,
 );
+
+// Inject a chord through QEMU's QMP monitor on the HOST (the VM runs on the
+// runner). QMP send-key arrives as real hardware keyboard input, so it passes
+// through both Hyprland's global keybind handling and fcitx5's input-method
+// filter — the path wtype's virtual keyboard does not reliably reach. qcode
+// names follow the harness: Super is meta_l and the `/~ key is grave_accent.
+const qmpPress = (qcodes: string[]) => {
+  const sock = process.env.OMARCHY_QMP_SOCK;
+  if (!sock) throw new Error('OMARCHY_QMP_SOCK is required for QMP key injection');
+  const keys = qcodes.map((code) => JSON.stringify({ type: 'qcode', data: code })).join(',');
+  const payload = `{"execute":"qmp_capabilities"}\n{"execute":"send-key","arguments":{"keys":[${keys}]}}\n`;
+  execFileSync('socat', ['-t', '2', '-', `UNIX-CONNECT:${sock}`], {
+    input: payload, encoding: 'utf8', timeout: 5000,
+  });
+};
 
 const setup = defineProjectSetup<FcitxContext>({
   name: 'fcitx',
@@ -112,15 +127,19 @@ const empty = z.strictObject({});
 
 const openTerminal = defineNode<typeof empty, void, FcitxContext>({
   name: 'shell.openTerminal',
-  description: 'Launch the default Omarchy terminal and wait until it is focused.',
+  description: 'Launch (or focus) the default Omarchy terminal and wait until it is focused.',
   inputSchema: empty,
   async execute() {
+    const terminalClasses = '^(foot|alacritty|ghostty|kitty|xterm)$';
     guest('setsid omarchy-launch-terminal >/dev/null 2>&1 </dev/null &');
     for (let attempt = 0; attempt < 15; attempt++) {
       const count = Number.parseInt(guest(
-        'hyprctl -j clients | jq -r \'[.[] | select(.class | ascii_downcase | test("foot|alacritty|ghostty|kitty|xterm"))] | length\'',
+        `hyprctl -j clients | jq -r '[.[] | select(.class | ascii_downcase | test("${terminalClasses}"))] | length'`,
       ) || '0', 10);
       if (count >= 1) {
+        // Retried cases may leave focus elsewhere; an unfocused terminal
+        // never receives fcitx's input-method events.
+        guest(`hyprctl dispatch focuswindow 'class:${terminalClasses}'`);
         await sleep(800);
         return;
       }
@@ -160,18 +179,18 @@ const applyFix = defineNode<typeof empty, void, FcitxContext>({
 
 // fcitx5's compiled-in default QuickPhrase trigger is Super+grave. QuickPhrase
 // swallows the first typed character into its own preedit strip, which is what
-// makes the control/treatment difference visible. Keys come from in-guest
-// wtype (a real Wayland virtual keyboard) instead of the X11 VNC path.
+// makes the control/treatment difference visible. Keys go through QMP on the
+// host (a real keyboard), not the virtual-keyboard path.
 const invokeQuickPhrase = defineNode<typeof empty, void, FcitxContext>({
   name: 'fcitx.invokeQuickPhrase',
-  description: 'Press Super+grave followed by the letter a, as in-guest virtual-keyboard input.',
+  description: 'Press Super+grave followed by the letter a via QMP hardware-keyboard injection.',
   inputSchema: empty,
   async execute({ context }) {
     const before = fcitxPanelCount();
-    guest('wtype -M logo -k grave -m logo');
-    await sleep(600);
-    guest('wtype a');
-    await sleep(900);
+    qmpPress(['meta_l', 'grave_accent']);
+    await sleep(700);
+    qmpPress(['a']);
+    await sleep(1000);
     const after = fcitxPanelCount();
     console.log(
       `[fcitx] fixApplied=${context.fixApplied} input-panel layers ${before} -> ${after}; `
@@ -182,12 +201,12 @@ const invokeQuickPhrase = defineNode<typeof empty, void, FcitxContext>({
 
 const cancel = defineNode<typeof empty, void, FcitxContext>({
   name: 'fcitx.cancel',
-  description: 'Dismiss QuickPhrase if open and clear the terminal input line.',
+  description: 'Dismiss QuickPhrase if open and clear the terminal input line (QMP keys).',
   inputSchema: empty,
   async execute() {
-    guest('wtype -k Escape');
+    qmpPress(['escape']);
     await sleep(200);
-    guest('wtype -M ctrl -k c -m ctrl');
+    qmpPress(['ctrl', 'c']);
     await sleep(200);
   },
 });

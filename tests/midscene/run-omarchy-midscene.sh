@@ -121,6 +121,14 @@ VM_PID="$(cat "$RUN_DIR/qemu.pid")"
 kill -0 "$VM_PID"
 ssh_guest true
 
+# The harness creates this QMP server socket (bin/omarchy-iso-test,
+# QMP_SOCK under /tmp). QMP send-key is a real hardware-keyboard path through
+# Hyprland's keybinding and fcitx5's input-method filter, unlike the virtual
+# keyboard wtype uses, which bypasses compositor chords.
+export OMARCHY_QMP_SOCK="$(ls -t /tmp/omarchy-iso-test-qmp.*.sock 2>/dev/null | head -1)"
+[[ -S $OMARCHY_QMP_SOCK ]] || { echo "QMP socket not found" >&2; exit 1; }
+echo "Using QMP socket $OMARCHY_QMP_SOCK"
+
 echo "Pre-staging the quickphrase.conf fixture into the guest's shipped config tree."
 scp -i "$SSH_KEY" -P "$SSH_PORT" \
   -o BatchMode=yes \
@@ -141,6 +149,7 @@ ssh_session_tty "printf '%s\\n' omarchy | sudo -S -p '' install -d -m 0755 /usr/
 
 # Start every case from a pristine fcitx5 state with no user override.
 ssh_session "rm -f \"\$HOME/.config/fcitx5/conf/quickphrase.conf\" ; \
+  systemctl --user reset-failed omarchy-fcitx5.service 2>/dev/null || true ; \
   systemctl --user restart omarchy-fcitx5.service"
 
 # First-run Omarchy notifications visually overlap the bottom of the screen

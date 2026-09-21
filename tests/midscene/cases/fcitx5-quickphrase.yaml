@@ -15,6 +15,7 @@ cases:
   - name: Shipped quickphrase.conf TriggerKey= frees Super+grave (omarchy issue 12365)
     steps:
       - fcitx.applyFix: {}
+      - shell.openTerminal: {}
       - fcitx.invokeQuickPhrase: {}
       - aiAssert: >-
           No fcitx5 QuickPhrase strip, candidate window or composing popup is

@@ -30,6 +30,13 @@ if ! command -v qemu-system-x86_64 >/dev/null 2>&1; then
     tesseract-ocr tesseract-ocr-eng zstd
 fi
 
+# socat drives QMP key injection; make sure it is present even if QEMU was
+# already on the host.
+if ! command -v socat >/dev/null 2>&1; then
+  sudo apt-get update
+  sudo apt-get install -y --no-install-recommends socat
+fi
+
 if ! command -v fluxbox >/dev/null 2>&1 || ! command -v vncviewer >/dev/null 2>&1; then
   sudo apt-get update
   sudo apt-get install -y --no-install-recommends \
