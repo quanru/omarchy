@@ -59,14 +59,14 @@ const restartFcitx = () => {
   waitForFcitx();
 };
 
-const layerNamespaces = () => guest(
-  'hyprctl -j layers | jq -r \'[.. | objects | (.namespace // "")] | join(",")\'',
+const clientClasses = () => guest(
+  'hyprctl -j clients | jq -r \'[.[].class] | join(",")\'',
 );
 
-const fcitxPanelCount = () => Number.parseInt(
-  guest('hyprctl -j layers | jq -r \'[.. | objects | select((.namespace // "") | ascii_downcase | test("fcitx|input-panel|input_panel|quickphrase"))] | length\'',
-  ) || '0', 10,
-);
+const fcitxPopupCount = () => Number.parseInt(
+  guest('hyprctl -j clients | jq -r \'[.[] | select((.class // "") | ascii_downcase | test("fcitx|quickphrase"))] | length\''),
+  10,
+) || 0;
 
 // Inject a chord through QEMU's QMP monitor on the HOST (the VM runs on the
 // runner). QMP send-key arrives as real hardware keyboard input, so it passes
@@ -130,6 +130,11 @@ const openTerminal = defineNode<typeof empty, void, FcitxContext>({
   description: 'Launch (or focus) the default Omarchy terminal and wait until it is focused.',
   inputSchema: empty,
   async execute() {
+    // omarchy-launch-terminal always maps a new window, so retried cases
+    // accumulate terminals. Close previous ones first so every case starts
+    // with a single, freshly focused terminal that receives the IM keys.
+    guest('for terminal_name in foot alacritty ghostty kitty xterm; do pkill -x "$terminal_name" 2>/dev/null || true; done');
+    await sleep(600);
     const terminalClass = '^(foot|alacritty|ghostty|kitty|xterm)$';
     const firstAddress = () => guest(
       `hyprctl -j clients | jq -r '[.[] | select(.class | ascii_downcase | test("${terminalClass}"))][0].address // empty'`,
@@ -144,14 +149,13 @@ const openTerminal = defineNode<typeof empty, void, FcitxContext>({
     if (!address) {
       throw new Error('No terminal window appeared after omarchy-launch-terminal');
     }
-    // A freshly launched terminal is already active; refocus by exact address
-    // only for retried cases, and never fail the node over a focus dispatch.
     try {
       guest(`hyprctl dispatch focuswindow "address:${address}"`);
-      await sleep(500);
     } catch (error) {
-      console.warn(`[shell] terminal focus dispatch failed for ${address}: ${error}`);
+      const stderr = (error as { stderr?: string }).stderr?.toString().trim();
+      console.warn(`[shell] focuswindow address:${address} failed${stderr ? `: ${stderr}` : ''}`);
     }
+    await sleep(500);
   },
 });
 
@@ -192,15 +196,15 @@ const invokeQuickPhrase = defineNode<typeof empty, void, FcitxContext>({
   description: 'Press Super+grave followed by the letter a via QMP hardware-keyboard injection.',
   inputSchema: empty,
   async execute({ context }) {
-    const before = fcitxPanelCount();
+    const before = fcitxPopupCount();
     qmpPress(['meta_l', 'grave_accent']);
     await sleep(700);
     qmpPress(['a']);
     await sleep(1000);
-    const after = fcitxPanelCount();
+    const after = fcitxPopupCount();
     console.log(
-      `[fcitx] fixApplied=${context.fixApplied} input-panel layers ${before} -> ${after}; `
-      + `namespaces after: ${layerNamespaces()}`,
+      `[fcitx] fixApplied=${context.fixApplied} popup clients ${before} -> ${after}; `
+      + `classes after: ${clientClasses()}`,
     );
   },
 });

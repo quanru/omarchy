@@ -5,11 +5,13 @@ cases:
       - shell.openTerminal: {}
       - fcitx.invokeQuickPhrase: {}
       - aiAssert: >-
-          A small fcitx5 QuickPhrase input strip (the addon's composing popup,
-          usually a thin horizontal bar near the bottom of the screen) is open
-          and shows the freshly typed lowercase letter "a" as its composing
-          text. The terminal's shell prompt line must NOT contain that "a",
-          because QuickPhrase intercepted the keystroke.
+          A fcitx5 Quick Phrase popup is open: a bordered white menu titled
+          "Quick Phrase:" positioned near the top-left of the focused
+          terminal, showing a row of numbered candidate entries (for example
+          kaomoji strings ending in "ah"). The addon may also show the typed
+          letter "a" as preedit text at the terminal cursor position, which
+          is expected. The decisive signal is that the Quick Phrase
+          candidate menu itself is clearly visible.
       - fcitx.cancel: {}
 
   - name: Shipped quickphrase.conf TriggerKey= frees Super+grave (omarchy issue 12365)
@@ -18,9 +20,10 @@ cases:
       - shell.openTerminal: {}
       - fcitx.invokeQuickPhrase: {}
       - aiAssert: >-
-          No fcitx5 QuickPhrase strip, candidate window or composing popup is
-          visible anywhere on the screen. The Super+grave chord did nothing in
-          the input method, and the lowercase letter "a" was typed directly
-          into the terminal at the shell prompt.
+          No fcitx5 Quick Phrase popup, candidate menu or composing window
+          is visible anywhere on the screen. The Super+grave chord was not
+          captured by the input method, and the lowercase letter "a" was
+          typed directly into the focused terminal at the shell prompt
+          rather than opening any fcitx5 UI.
       - fcitx.resetDefault: {}
       - fcitx.cancel: {}
