@@ -1,10 +1,6 @@
 # Midscene visual regression suite on a real Omarchy VM
 
-Visual/behavioral regression tests driven by [Midscene Test](https://midscenejs.com/midscene-test/overview.html)
-against a **real installed Omarchy desktop** (Hyprland/Wayland) in a disposable
-KVM virtual machine. The model only performs vision assertions; keystrokes are
-injected in-guest as a real Wayland virtual keyboard (`wtype`), so the results
-do not depend on the VLM's typing accuracy.
+Visual/behavioral regression tests driven by [Midscene Test](https://midscenejs.com/midscene-test/overview.html) against a **real installed Omarchy desktop** (Hyprland/Wayland) in a disposable KVM virtual machine. The model only performs vision assertions; compositor shortcuts are injected through QEMU QMP as hardware key chords, so they traverse the same Hyprland and fcitx5 path as a physical keyboard.
 
 This directory is self-contained and does not touch the upstream bash suites
 under `test/`. It reuses the architecture proven by the `quanru/doubao-say`
@@ -21,28 +17,19 @@ Linux host (GitHub runner, /dev/kvm)
 
 ## Cases — fcitx5 QuickPhrase / Super+grave
 
-`cases/fcitx5-quickphrase.yaml` is the regression for upstream issue
-[#12365](https://github.com/omacom/omarchy/issues/12365): fcitx5's compiled-in
-QuickPhrase trigger is Super+grave, which the upcoming Quake console wants to
-own. The shipped fix is `config/fcitx5/conf/quickphrase.conf` containing
-`TriggerKey=`.
+`cases/fcitx5-quickphrase.yaml` is the regression for upstream issue [#12365](https://github.com/omacom/omarchy/issues/12365): fcitx5's compiled-in QuickPhrase trigger is Super+grave, which the upcoming Quake console wants to own. The shipped config keeps the non-conflicting default in fcitx5's key-list format:
+
+```ini
+[TriggerKey]
+0=Super+semicolon
+```
 
 Each run executes a control and a treatment in the same live session:
 
-1. **Control (stock Omarchy):** no user override exists; Super+grave opens the
-   QuickPhrase strip, and the next typed `a` is intercepted into QuickPhrase's
-   preedit instead of reaching the terminal.
-2. **Treatment (shipped fix):** the override is deployed with Omarchy's own
-   `omarchy-refresh-config fcitx5/conf/quickphrase.conf`, fcitx5 restarts, and
-   the same chord does nothing — no popup, and `a` lands at the shell prompt.
+1. **Control (stock Omarchy):** no user override exists; Super+grave opens the QuickPhrase strip, and the next typed `a` is intercepted into QuickPhrase's preedit instead of reaching the terminal.
+2. **Treatment (shipped migration):** an existing user config contains another QuickPhrase choice but only commented trigger defaults. The candidate migration preserves that choice, installs the narrowed trigger list and restarts fcitx5. Super+grave then does nothing while Super+semicolon still opens the Quick Phrase candidate menu.
 
-The custom nodes live in `midscene.config.ts`
-(`fcitx.resetDefault`, `fcitx.applyFix`, `fcitx.invokeQuickPhrase`,
-`fcitx.cancel`, `shell.openTerminal`). The run script
-(`run-omarchy-midscene.sh`) pre-stages `config/fcitx5/conf/quickphrase.conf`
-into the guest's `/usr/share/omarchy/config/` tree before the cases start, so
-`fcitx.applyFix` exercises the real update deployment path rather than a
-hand-edited guest file.
+The custom nodes live in `midscene.config.ts` (`fcitx.resetDefault`, `fcitx.applyFix`, `fcitx.invokeQuickPhrase`, `fcitx.cancel`, `shell.openTerminal`). The run script (`run-omarchy-midscene.sh`) pre-stages both the candidate config and migration under the guest's `/usr/share/omarchy/` tree before the cases start, so `fcitx.applyFix` exercises the real upgrade path rather than a hand-edited guest file.
 
 ## Running in CI
 

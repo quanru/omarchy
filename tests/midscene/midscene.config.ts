@@ -172,17 +172,31 @@ const resetDefault = defineNode<typeof empty, void, FcitxContext>({
 
 const applyFix = defineNode<typeof empty, void, FcitxContext>({
   name: 'fcitx.applyFix',
-  description: 'Deploy config/fcitx5/conf/quickphrase.conf through omarchy-refresh-config and restart fcitx5.',
+  description: 'Run the shipped migration against an existing QuickPhrase config that still inherits the upstream triggers.',
   inputSchema: empty,
   execute({ context }) {
-    // /usr/share/omarchy/config/fcitx5/conf/quickphrase.conf was pre-staged by
-    // run-omarchy-midscene.sh, so this exercises Omarchy's real update path.
-    guest('omarchy-refresh-config fcitx5/conf/quickphrase.conf');
+    // This config contains another user choice but only commented TriggerKey
+    // defaults. A whole-file guard used to skip this upgrade case.
+    guest('mkdir -p "$HOME/.config/fcitx5/conf"; '
+      + 'printf \'%s\\n\' \'# Trigger Key\' \'# [TriggerKey]\' \'# 0=Super+grave\' '
+      + '\'# 1=Super+semicolon\' \'Choose Modifier=Alt\' '
+      + '>"$HOME/.config/fcitx5/conf/quickphrase.conf"; '
+      + 'bash -euo pipefail "$OMARCHY_PATH/migrations/1789983273.sh"');
     const deployed = guest('cat "$HOME/.config/fcitx5/conf/quickphrase.conf"');
-    if (!/^TriggerKey=$/m.test(deployed)) {
-      throw new Error(`Deployed quickphrase.conf is not the shipped override:\n${deployed}`);
+    const expected = [
+      '# Trigger Key',
+      '# [TriggerKey]',
+      '# 0=Super+grave',
+      '# 1=Super+semicolon',
+      'Choose Modifier=Alt',
+      '',
+      '[TriggerKey]',
+      '0=Super+semicolon',
+    ].join('\n');
+    if (deployed !== expected) {
+      throw new Error(`Migrated quickphrase.conf did not preserve user config and install the narrowed trigger list:\n${deployed}`);
     }
-    restartFcitx();
+    waitForFcitx();
     context.fixApplied = true;
   },
 });

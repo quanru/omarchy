@@ -15,7 +15,7 @@ cases:
           candidate menu itself is clearly visible.
       - fcitx.cancel: {}
 
-  - name: Shipped quickphrase.conf frees Super+grave but keeps Super+semicolon (omarchy issue 12365)
+  - name: QuickPhrase migration frees Super+grave but keeps Super+semicolon (omarchy issue 12365)
     steps:
       - fcitx.applyFix: {}
       - shell.openTerminal: {}

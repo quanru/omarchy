@@ -19,9 +19,10 @@ readonly ISO_PATH="$WORK_DIR/omarchy-${OMARCHY_ISO_VERSION}.iso"
 readonly BASE_DIR="$HARNESS_DIR/test-runs/omarchy-${OMARCHY_ISO_VERSION}"
 readonly SSH_KEY="$BASE_DIR/id_ed25519"
 readonly SSH_PORT=2222
-# The file under test in this checkout, staged into the guest so its own
-# omarchy-refresh-config can deploy it exactly as a real Omarchy update would.
+# The files under test in this checkout, staged into the guest so the treatment
+# executes the exact config and migration from the candidate change.
 readonly FIXTURE_CONF="$ROOT_DIR/config/fcitx5/conf/quickphrase.conf"
+readonly FIXTURE_MIGRATION="$ROOT_DIR/migrations/1789983273.sh"
 export NODE_OPTIONS="${NODE_OPTIONS:-} --require=$ROOT_DIR/tests/midscene/node_modules/@computer-use/libnut/dist/import_libnut.js"
 export OMARCHY_SSH_KEY="$SSH_KEY"
 
@@ -89,6 +90,7 @@ test -s "$ISO_PATH"
 test -s "$BASE_DIR/base.qcow2"
 test -s "$SSH_KEY"
 test -s "$FIXTURE_CONF"
+test -s "$FIXTURE_MIGRATION"
 
 # Reuse the pinned official harness's VM, login and session routines. Replace
 # only its post-login acceptance body so this job can hand the live desktop to
@@ -129,7 +131,7 @@ export OMARCHY_QMP_SOCK="$(ls -t /tmp/omarchy-iso-test-qmp.*.sock 2>/dev/null | 
 [[ -S $OMARCHY_QMP_SOCK ]] || { echo "QMP socket not found" >&2; exit 1; }
 echo "Using QMP socket $OMARCHY_QMP_SOCK"
 
-echo "Pre-staging the quickphrase.conf fixture into the guest's shipped config tree."
+echo "Pre-staging the QuickPhrase config and migration into the guest."
 scp -i "$SSH_KEY" -P "$SSH_PORT" \
   -o BatchMode=yes \
   -o IdentitiesOnly=yes \
@@ -137,15 +139,17 @@ scp -i "$SSH_KEY" -P "$SSH_PORT" \
   -o UserKnownHostsFile=/dev/null \
   -o ConnectTimeout=10 \
   -o LogLevel=ERROR \
-  "$FIXTURE_CONF" omarchy@127.0.0.1:/tmp/quickphrase.conf
+  "$FIXTURE_CONF" "$FIXTURE_MIGRATION" omarchy@127.0.0.1:/tmp/
 
 # The disposable account created by the official harness uses password
-# "omarchy". Authorize sudo in a PTY and place the file under test at the real
-# shipped-config path so in-guest omarchy-refresh-config exercises the exact
-# deployment path a real update takes.
+# "omarchy". Authorize sudo in a PTY and place the files under test at their
+# real shipped paths so the treatment exercises the exact update migration.
 ssh_session_tty "printf '%s\\n' omarchy | sudo -S -p '' install -d -m 0755 /usr/share/omarchy/config/fcitx5/conf && \
+  printf '%s\\n' omarchy | sudo -S -p '' install -d -m 0755 /usr/share/omarchy/migrations && \
   printf '%s\\n' omarchy | sudo -S -p '' install -m 0644 /tmp/quickphrase.conf /usr/share/omarchy/config/fcitx5/conf/quickphrase.conf && \
-  test -s /usr/share/omarchy/config/fcitx5/conf/quickphrase.conf"
+  printf '%s\\n' omarchy | sudo -S -p '' install -m 0644 /tmp/1789983273.sh /usr/share/omarchy/migrations/1789983273.sh && \
+  test -s /usr/share/omarchy/config/fcitx5/conf/quickphrase.conf && \
+  test -s /usr/share/omarchy/migrations/1789983273.sh"
 
 # Start every case from a pristine fcitx5 state with no user override.
 ssh_session "rm -f \"\$HOME/.config/fcitx5/conf/quickphrase.conf\" ; \
