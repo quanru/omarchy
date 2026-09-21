@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fcitx5 QuickPhrase Super+grave regression — Midscene evidence</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 980px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+  h1 { font-size: 1.4rem; }
+  h2 { margin-top: 2rem; }
+  figure { margin: 1rem 0; }
+  img { max-width: 100%; border: 1px solid #888; }
+  figcaption { font-size: .9rem; color: #555; margin-top: .35rem; }
+  code { background: #f0f0f0; padding: .1em .3em; border-radius: 3px; }
+  a.report { font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>fcitx5 QuickPhrase <code>Super+grave</code> — Midscene visual regression evidence</h1>
+<p>
+Evidence for upstream PR <a href="https://github.com/omacom/omarchy/pull/12756">omacom/omarchy#12756</a>,
+issue <a href="https://github.com/omacom/omarchy/issues/12365">#12365</a>.
+Real Omarchy <strong>4.0.3</strong> VM; Midscene drove the live Hyprland desktop and injected
+<code>Super+grave</code> via QEMU QMP <code>send-key</code> (hardware-keyboard path through the
+Hyprland bind layer and fcitx5's IM filter). Vision-model assertions on the actual screen;
+2/2 cases passed.
+CI run: <a href="https://github.com/quanru/omarchy/actions/runs/35583300837">35583300837</a>.
+</p>
+
+<h2>Before — stock Omarchy (control)</h2>
+<p><code>Super+grave</code> opens the fcitx5 Quick Phrase candidate popup; the keystroke is intercepted.</p>
+<figure>
+  <img src="before-stock-quickphrase.jpg" alt="Terminal with the Quick Phrase candidate menu open">
+  <figcaption>Screenshot at the aiAssert step.</figcaption>
+</figure>
+<p><a class="report" href="midscene-report-before-stock.html">Open the full self-contained Midscene report (steps, screenshots, model reasoning)</a></p>
+
+<h2>After — shipping <code>quickphrase.conf</code> with <code>TriggerKey=</code> (treatment)</h2>
+<p>No fcitx5 UI appears; the keystrokes reach the terminal prompt directly.</p>
+<figure>
+  <img src="after-triggerkey-blank.jpg" alt="Terminal with no Quick Phrase popup, backtick and a typed at the prompt">
+  <figcaption>Screenshot at the aiAssert step.</figcaption>
+</figure>
+<p><a class="report" href="midscene-report-after-fix.html">Open the full self-contained Midscene report (steps, screenshots, model reasoning)</a></p>
+</body>
+</html>
