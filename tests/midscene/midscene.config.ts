@@ -130,22 +130,28 @@ const openTerminal = defineNode<typeof empty, void, FcitxContext>({
   description: 'Launch (or focus) the default Omarchy terminal and wait until it is focused.',
   inputSchema: empty,
   async execute() {
-    const terminalClasses = '^(foot|alacritty|ghostty|kitty|xterm)$';
+    const terminalClass = '^(foot|alacritty|ghostty|kitty|xterm)$';
+    const firstAddress = () => guest(
+      `hyprctl -j clients | jq -r '[.[] | select(.class | ascii_downcase | test("${terminalClass}"))][0].address // empty'`,
+    );
     guest('setsid omarchy-launch-terminal >/dev/null 2>&1 </dev/null &');
+    let address = '';
     for (let attempt = 0; attempt < 15; attempt++) {
-      const count = Number.parseInt(guest(
-        `hyprctl -j clients | jq -r '[.[] | select(.class | ascii_downcase | test("${terminalClasses}"))] | length'`,
-      ) || '0', 10);
-      if (count >= 1) {
-        // Retried cases may leave focus elsewhere; an unfocused terminal
-        // never receives fcitx's input-method events.
-        guest(`hyprctl dispatch focuswindow 'class:${terminalClasses}'`);
-        await sleep(800);
-        return;
-      }
+      address = firstAddress();
+      if (address) break;
       await sleep(1000);
     }
-    throw new Error('No terminal window appeared after omarchy-launch-terminal');
+    if (!address) {
+      throw new Error('No terminal window appeared after omarchy-launch-terminal');
+    }
+    // A freshly launched terminal is already active; refocus by exact address
+    // only for retried cases, and never fail the node over a focus dispatch.
+    try {
+      guest(`hyprctl dispatch focuswindow "address:${address}"`);
+      await sleep(500);
+    } catch (error) {
+      console.warn(`[shell] terminal focus dispatch failed for ${address}: ${error}`);
+    }
   },
 });
 
